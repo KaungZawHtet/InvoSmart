@@ -1,0 +1,11 @@
+# Logs
+logs/
+*.log
+
+# Local dev files
+.vscode/
+.idea/
+*.swp
+
+# User secrets (if we use `dotnet user-secrets`)
+**/secrets.json
