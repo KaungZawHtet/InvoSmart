@@ -34,8 +34,12 @@ builder.Host.UseSerilog(
             .Enrich.WithProcessId()
             .Enrich.WithThreadId()
             .Enrich.FromLogContext()
-            .WriteTo.Console()
-            .WriteTo.File("logs/app-.log", rollingInterval: RollingInterval.Day);
+            .WriteTo.Console();
+
+        if (ctx.HostingEnvironment.IsDevelopment())
+        {
+            lc.WriteTo.File("logs/app-.log", rollingInterval: RollingInterval.Day);
+        }
     }
 );
 
