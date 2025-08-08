@@ -1,11 +1,28 @@
-# Logs
-logs/
+# Logs (API)
+backend/logs/
+backend/bin/
 *.log
 
-# Local dev files
+# Terraform (infra)
+infra/**/.terraform/
+infra/**/.terraform.lock.hcl
+infra/**/terraform.tfstate
+infra/**/terraform.tfstate.backup
+infra/**/crash.log
+
+# Node (web - future)
+web/node_modules/
+web/.next/
+web/.turbo/
+web/build/
+
+# Local tooling
 .vscode/
 .idea/
 *.swp
+*.DS_Store
 
-# User secrets (if we use `dotnet user-secrets`)
+# Env/secrets (keep secrets out of git)
+**/.env
+**/.env.local
 **/secrets.json
