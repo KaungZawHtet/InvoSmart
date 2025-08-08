@@ -6,27 +6,28 @@ namespace InvoSmart.Api.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
-public class CustomersController(ICustomerService service) : ControllerBase
+public class InvoicesController(IInvoiceService service) : ControllerBase
 {
     [HttpGet]
-    public async Task<ActionResult<IEnumerable<CustomerResponseDto>>> GetAll(
+    public async Task<ActionResult<IEnumerable<InvoiceResponseDto>>> GetAll(
+        [FromQuery] Guid? customerId,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
         CancellationToken ct = default
     )
     {
-        var (items, total) = await service.GetAllAsync(page, pageSize, ct);
+        var (items, total) = await service.GetAllAsync(customerId, page, pageSize, ct);
         Response.Headers.Append("X-Total-Count", total.ToString());
         return Ok(items);
     }
 
     [HttpGet("{id:guid}")]
-    public async Task<ActionResult<CustomerResponseDto>> GetById(Guid id, CancellationToken ct) =>
-        (await service.GetByIdAsync(id, ct)) is { } c ? Ok(c) : NotFound();
+    public async Task<ActionResult<InvoiceResponseDto>> GetById(Guid id, CancellationToken ct) =>
+        (await service.GetByIdAsync(id, ct)) is { } i ? Ok(i) : NotFound();
 
     [HttpPost]
-    public async Task<ActionResult<CustomerResponseDto>> Create(
-        [FromBody] CustomerCreateDto dto,
+    public async Task<ActionResult<InvoiceResponseDto>> Create(
+        [FromBody] InvoiceCreateDto dto,
         CancellationToken ct
     )
     {
@@ -37,7 +38,7 @@ public class CustomersController(ICustomerService service) : ControllerBase
     [HttpPut("{id:guid}")]
     public async Task<IActionResult> Update(
         Guid id,
-        [FromBody] CustomerUpdateDto dto,
+        [FromBody] InvoiceUpdateDto dto,
         CancellationToken ct
     ) => await service.UpdateAsync(id, dto, ct) ? NoContent() : NotFound();
 

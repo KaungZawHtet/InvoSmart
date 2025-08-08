@@ -1,5 +1,7 @@
+using InvoSmart.Api.Abstractions;
 using InvoSmart.Api.Data;
 using InvoSmart.Api.Middlewares;
+using InvoSmart.Api.Services;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 
@@ -13,6 +15,9 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHealthChecks();
+
+builder.Services.AddScoped<ICustomerService, CustomerService>();
+builder.Services.AddScoped<IInvoiceService, InvoiceService>();
 
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
