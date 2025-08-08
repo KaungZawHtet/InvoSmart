@@ -19,15 +19,19 @@ type Customer = {
     createdAtUtc: string;
 };
 
+function isError(value: unknown): value is Error {
+    return typeof value === 'object' && value !== null && 'message' in value;
+}
+
 async function fetchCustomers(page: number, pageSize: number) {
-    const base = process.env.NEXT_PUBLIC_API_BASE_URL!; // e.g. http://localhost:5242
+    const base = process.env.NEXT_PUBLIC_API_BASE_URL!;
     const url = `${base}/api/customers?page=${page}&pageSize=${pageSize}`;
 
     let res: Response;
     try {
         res = await fetch(url, { cache: 'no-store' });
-    } catch (e: any) {
-        console.error('Fetch failed:', e?.message ?? e);
+    } catch (e: unknown) {
+        console.error('Fetch failed:', isError(e) ? e.message : e);
         throw new Error('Failed to reach API');
     }
 
@@ -37,7 +41,9 @@ async function fetchCustomers(page: number, pageSize: number) {
         let detail = '';
         try {
             detail = await res.text();
-        } catch {}
+        } catch {
+            /* ignore */
+        }
         console.error('API error', res.status, res.statusText, detail);
         throw new Error(`API ${res.status} ${res.statusText}`);
     }
@@ -119,7 +125,7 @@ export default async function CustomersPage({
                 )}
             </div>
 
-            {/* Pagination (visible on both mobile & desktop) */}
+            {/* Pagination (mobile + desktop) */}
             <div className="mt-4 flex items-center justify-between gap-3 flex-wrap">
                 <div className="text-sm text-muted-foreground shrink-0 whitespace-nowrap tabular-nums">
                     Page {page} of {totalPages}&nbsp;·&nbsp;{total} total
@@ -140,7 +146,6 @@ export default async function CustomersPage({
                                 )}&pageSize=${pageSize}`}
                             />
                         </PaginationItem>
-
                         <PaginationItem>
                             <PaginationLink
                                 href={`/customers?page=${page}&pageSize=${pageSize}`}
@@ -150,7 +155,6 @@ export default async function CustomersPage({
                                 {page}
                             </PaginationLink>
                         </PaginationItem>
-
                         {page + 1 <= totalPages && (
                             <PaginationItem>
                                 <PaginationLink
@@ -163,7 +167,6 @@ export default async function CustomersPage({
                                 </PaginationLink>
                             </PaginationItem>
                         )}
-
                         <PaginationItem>
                             <PaginationNext
                                 className={
