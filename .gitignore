@@ -1,6 +1,7 @@
 # Logs (API)
 backend/logs/
-backend/bin/
+backend/InvoSmart.Api/bin/
+backend/InvoSmart.Api/obj/
 *.log
 
 # Terraform (infra)
