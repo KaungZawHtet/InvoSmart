@@ -19,6 +19,21 @@ builder.Services.AddHealthChecks();
 builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<IInvoiceService, InvoiceService>();
 
+var allowedOrigins =
+    builder.Configuration.GetSection("AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
+const string CorsPolicy = "Frontend";
+
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy(
+        name: CorsPolicy,
+        policy =>
+        {
+            policy.WithOrigins(allowedOrigins).AllowAnyHeader().AllowAnyMethod().AllowCredentials();
+        }
+    );
+});
+
 builder.Services.AddDbContext<AppDbContext>(options =>
 {
     var cs = builder.Configuration.GetConnectionString("Default");
@@ -58,6 +73,23 @@ app.UseSerilogRequestLogging(opts =>
         "HTTP {RequestMethod} {RequestPath} responded {StatusCode} in {Elapsed:0.0000} ms";
 });
 
+// Seed the database
+if (app.Environment.IsDevelopment())
+{
+    using var scope = app.Services.CreateScope();
+    var db = scope.ServiceProvider.GetRequiredService<InvoSmart.Api.Data.AppDbContext>();
+    var log = scope.ServiceProvider.GetRequiredService<ILoggerFactory>().CreateLogger("DbSeeder");
+    try
+    {
+        await InvoSmart.Api.Data.DbSeeder.SeedAsync(db, log);
+    }
+    catch (Exception ex)
+    {
+        log.LogError(ex, "Error seeding the database");
+        throw;
+    }
+}
+
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
@@ -68,6 +100,8 @@ if (app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 
 app.UseAuthorization();
+
+app.UseCors(CorsPolicy);
 
 app.UseMiddleware<ErrorHandlingMiddleware>();
 
