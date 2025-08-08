@@ -1,7 +1,8 @@
+using InvoSmart.Api.Data;
+using Microsoft.EntityFrameworkCore;
 using Serilog;
 
 Log.Logger = new LoggerConfiguration().WriteTo.Console().CreateLogger();
-
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -12,6 +13,17 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHealthChecks();
 
+builder.Services.AddDbContext<AppDbContext>(options =>
+{
+    var cs = builder.Configuration.GetConnectionString("Default");
+    options.UseNpgsql(cs);
+    // Optional: detailed EF logs in dev
+    if (builder.Environment.IsDevelopment())
+    {
+        options.EnableSensitiveDataLogging();
+        options.EnableDetailedErrors();
+    }
+});
 
 // Hook Serilog into the host and read config from appsettings
 builder.Host.UseSerilog(
@@ -39,7 +51,7 @@ app.UseSerilogRequestLogging(opts =>
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
-     app.UseSwagger();
+    app.UseSwagger();
     app.UseSwaggerUI();
 }
 
