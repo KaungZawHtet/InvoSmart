@@ -8,106 +8,119 @@ import {
     PaginationPrevious,
 } from '@/components/ui/pagination';
 import Link from 'next/link';
-import CreateCustomerDialog from './CreateCustomerDialog';
-import CustomersTable from './Table';
 
-type Customer = {
+import StatusBadge from '@/components/StatusBadge';
+import CreateInvoiceDialog from './CreateInvoiceDialog';
+import DeleteInvoiceButton from './DeleteInvoiceButton';
+import InvoicesTable from './Table';
+
+type InvoiceStatus = 'Draft' | 'Sent' | 'Paid' | 'Overdue' | 'Cancelled';
+
+type Invoice = {
     id: string;
-    name: string;
-    email: string;
-    phone?: string;
-    billingAddress?: string;
+    invoiceNumber: string;
+    amount: number;
+    issueDateUtc: string;
+    dueDateUtc: string;
+    status: InvoiceStatus;
+    customerId: string;
     createdAtUtc: string;
 };
 
-function isError(value: unknown): value is Error {
-    return typeof value === 'object' && value !== null && 'message' in value;
-}
-
-async function fetchCustomers(page: number, pageSize: number) {
+async function fetchInvoices(params: {
+    customerId?: string;
+    page: number;
+    pageSize: number;
+}) {
     const base = process.env.NEXT_PUBLIC_API_BASE_URL!;
-    const url = `${base}/api/customers?page=${page}&pageSize=${pageSize}`;
+    const search = new URLSearchParams({
+        page: String(params.page),
+        pageSize: String(params.pageSize),
+    });
+    if (params.customerId) search.set('customerId', params.customerId);
+
+    const url = `${base}/api/invoices?${search.toString()}`;
 
     let res: Response;
     try {
         res = await fetch(url, { cache: 'no-store' });
-    } catch (e: unknown) {
-        console.error('Fetch failed:', isError(e) ? e.message : e);
+    } catch (e) {
         throw new Error('Failed to reach API');
     }
 
     const total = Number(res.headers.get('X-Total-Count') ?? '0');
-
     if (!res.ok) {
-        let detail = '';
-        try {
-            detail = await res.text();
-        } catch {
-            /* ignore */
-        }
-        console.error('API error', res.status, res.statusText, detail);
-        throw new Error(`API ${res.status} ${res.statusText}`);
+        const text = await res.text().catch(() => '');
+        throw new Error(`API ${res.status} ${res.statusText}: ${text}`);
     }
 
-    const data = (await res.json()) as Customer[];
+    const data = (await res.json()) as Invoice[];
     return { data, total };
 }
 
-export default async function CustomersPage({
+export default async function InvoicesPage({
     searchParams,
 }: {
-    searchParams?: { page?: string; pageSize?: string };
+    searchParams?: { customerId?: string; page?: string; pageSize?: string };
 }) {
+    const customerId = searchParams?.customerId?.trim() || undefined;
     const page = Math.max(1, Number(searchParams?.page ?? 1));
     const pageSize = Math.min(
         100,
         Math.max(1, Number(searchParams?.pageSize ?? 10))
     );
 
-    const { data, total } = await fetchCustomers(page, pageSize);
+    const { data, total } = await fetchInvoices({ customerId, page, pageSize });
     const totalPages = Math.max(1, Math.ceil(total / pageSize));
 
     return (
         <section className="space-y-4">
             <div className="flex items-center justify-between">
-                <h1 className="text-xl font-semibold">Customers</h1>
-                <CreateCustomerDialog />
+                <h1 className="text-xl font-semibold">Invoices</h1>
+                <CreateInvoiceDialog />
             </div>
 
             {/* Desktop table */}
             <Card className="hidden md:block">
                 <CardHeader>
-                    <CardTitle className="text-base">All customers</CardTitle>
+                    <CardTitle className="text-base">
+                        {customerId ? 'Customer invoices' : 'All invoices'}
+                    </CardTitle>
                 </CardHeader>
                 <CardContent>
-                    <CustomersTable customers={data} />
+                    <InvoicesTable invoices={data} />
                 </CardContent>
             </Card>
 
             {/* Mobile cards */}
             <div className="grid gap-3 md:hidden">
-                {data.map((c) => (
-                    <Card key={c.id}>
+                {data.map((i) => (
+                    <Card key={i.id}>
                         <CardContent className="p-4">
-                            <div className="font-medium text-foreground">
-                                {c.name}
+                            <div className="flex items-center justify-between">
+                                <div className="font-medium">
+                                    {i.invoiceNumber}
+                                </div>
+                                <StatusBadge status={i.status} />
+                            </div>
+                            <div className="mt-1 text-sm text-muted-foreground">
+                                Amount: {i.amount.toFixed(2)}
                             </div>
                             <div className="text-sm text-muted-foreground">
-                                {c.email}
+                                Due:{' '}
+                                {new Date(i.dueDateUtc).toLocaleDateString()}
                             </div>
-                            <div className="text-sm text-muted-foreground">
-                                {c.phone ?? '—'}
-                            </div>
-                            <div className="mt-2 text-xs text-muted-foreground">
-                                {new Date(c.createdAtUtc).toLocaleDateString()}
-                            </div>
-                            <div className="mt-3">
+                            <div className="mt-3 flex items-center gap-3">
                                 <Link
-                                    href={`/invoices?customerId=${c.id}`}
+                                    href={`/invoices/${i.id}`}
                                     className="text-sm text-primary underline"
                                 >
-                                    View invoices →
+                                    View →
                                 </Link>
+                                <DeleteInvoiceButton
+                                    invoiceId={i.id}
+                                    invoiceNumber={i.invoiceNumber}
+                                />
                             </div>
                         </CardContent>
                     </Card>
@@ -115,7 +128,7 @@ export default async function CustomersPage({
                 {data.length === 0 && (
                     <Card>
                         <CardContent className="p-6 text-center text-sm text-muted-foreground">
-                            No customers found.
+                            No invoices found.
                         </CardContent>
                     </Card>
                 )}
@@ -136,33 +149,43 @@ export default async function CustomersPage({
                                         ? 'pointer-events-none opacity-50'
                                         : ''
                                 }
-                                href={`/customers?page=${Math.max(
-                                    1,
-                                    page - 1
-                                )}&pageSize=${pageSize}`}
+                                href={`/invoices?${new URLSearchParams({
+                                    ...(customerId ? { customerId } : {}),
+                                    page: String(Math.max(1, page - 1)),
+                                    pageSize: String(pageSize),
+                                }).toString()}`}
                             />
                         </PaginationItem>
+
                         <PaginationItem>
                             <PaginationLink
-                                href={`/customers?page=${page}&pageSize=${pageSize}`}
+                                href={`/invoices?${new URLSearchParams({
+                                    ...(customerId ? { customerId } : {}),
+                                    page: String(page),
+                                    pageSize: String(pageSize),
+                                }).toString()}`}
                                 className="min-w-9 justify-center"
                                 isActive
                             >
                                 {page}
                             </PaginationLink>
                         </PaginationItem>
+
                         {page + 1 <= totalPages && (
                             <PaginationItem>
                                 <PaginationLink
-                                    href={`/customers?page=${
-                                        page + 1
-                                    }&pageSize=${pageSize}`}
+                                    href={`/invoices?${new URLSearchParams({
+                                        ...(customerId ? { customerId } : {}),
+                                        page: String(page + 1),
+                                        pageSize: String(pageSize),
+                                    }).toString()}`}
                                     className="min-w-9 justify-center"
                                 >
                                     {page + 1}
                                 </PaginationLink>
                             </PaginationItem>
                         )}
+
                         <PaginationItem>
                             <PaginationNext
                                 className={
@@ -170,10 +193,13 @@ export default async function CustomersPage({
                                         ? 'pointer-events-none opacity-50'
                                         : ''
                                 }
-                                href={`/customers?page=${Math.min(
-                                    totalPages,
-                                    page + 1
-                                )}&pageSize=${pageSize}`}
+                                href={`/invoices?${new URLSearchParams({
+                                    ...(customerId ? { customerId } : {}),
+                                    page: String(
+                                        Math.min(totalPages, page + 1)
+                                    ),
+                                    pageSize: String(pageSize),
+                                }).toString()}`}
                             />
                         </PaginationItem>
                     </PaginationContent>

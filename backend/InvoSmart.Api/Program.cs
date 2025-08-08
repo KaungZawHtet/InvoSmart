@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using InvoSmart.Api.Abstractions;
 using InvoSmart.Api.Data;
 using InvoSmart.Api.Middlewares;
@@ -11,7 +12,13 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 
-builder.Services.AddControllers();
+builder
+    .Services.AddControllers()
+    .AddJsonOptions(o =>
+    {
+        o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    });
+;
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHealthChecks();

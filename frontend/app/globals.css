@@ -78,6 +78,10 @@
   --sidebar-ring: oklch(0.704 0.04 256.788);
   --background: oklch(1 0 0);
   --foreground: oklch(0.129 0.042 264.695);
+
+    --success: oklch(0.82 0.12 145);
+      /* green-ish */
+      --success-foreground: oklch(0.22 0.04 145);
 }
 
 .dark {
@@ -112,6 +116,9 @@
   --sidebar-accent-foreground: oklch(0.984 0.003 247.858);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.551 0.027 264.364);
+
+    --success: oklch(0.62 0.12 145);
+      --success-foreground: oklch(0.96 0.02 145);
 }
 
 @layer base {
