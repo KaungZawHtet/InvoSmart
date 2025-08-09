@@ -57,6 +57,10 @@ jobs:
             - name: Publish
               run: dotnet publish "${{ env.PROJECT }}" -c Release -o "${{ env.PUBLISH_DIR }}" /p:UseAppHost=false
 
+            # --- Migrations (idempotent SQL) ---
+            - name: Restore dotnet tools
+              run: dotnet tool restore
+
             # --- Migrations ---
             - name: Generate idempotent EF migration script
               run: |
