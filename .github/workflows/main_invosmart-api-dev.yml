@@ -1,54 +1,49 @@
-# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
-# More GitHub Actions for Azure: https://github.com/Azure/actions
-
-name: Build and deploy ASP.Net Core app to Azure Web App - invosmart-api-dev
+name: Deploy Backend to Azure App Service (OIDC)
 
 on:
     push:
-        branches:
-            - main
-    workflow_dispatch:
+        branches: [main] # <-- change to your branch if not 'main'
+    workflow_dispatch: # <-- manual run button
 
 jobs:
-    build:
+    build-and-deploy:
         runs-on: ubuntu-latest
         permissions:
-            contents: read #This is required for actions/checkout
+            id-token: write
+            contents: read
+
+        env:
+            PROJECT: backend/InvoSmart.Api/InvoSmart.Api.csproj
+            PUBLISH_DIR: backend/publish
+            AZURE_WEBAPP_NAME: invosmart-api-dev
 
         steps:
-            - uses: actions/checkout@v4
+            - name: Checkout
+              uses: actions/checkout@v4
 
-            - name: Set up .NET Core
+            - name: Setup .NET 9
               uses: actions/setup-dotnet@v4
               with:
-                  dotnet-version: '9.x'
+                  dotnet-version: '9.0.x'
 
-            - name: Build with dotnet
-              run: dotnet build --configuration Release
+            - name: Restore
+              run: dotnet restore $PROJECT
 
-            - name: dotnet publish
-              run: dotnet publish -c Release -o ${{env.DOTNET_ROOT}}/myapp
+            - name: Build
+              run: dotnet build $PROJECT -c Release --no-restore
 
-            - name: Upload artifact for deployment job
-              uses: actions/upload-artifact@v4
-              with:
-                  name: .net-app
-                  path: ${{env.DOTNET_ROOT}}/myapp
+            - name: Test
+              run: |
+                  if [ -f "backend/InvoSmart.Tests/InvoSmart.Tests.csproj" ]; then
+                    dotnet test backend/InvoSmart.Tests/InvoSmart.Tests.csproj -c Release --no-build
+                  else
+                    echo "No tests project. Skipping."
+                  fi
 
-    deploy:
-        runs-on: ubuntu-latest
-        needs: build
-        permissions:
-            id-token: write #This is required for requesting the JWT
-            contents: read #This is required for actions/checkout
+            - name: Publish
+              run: dotnet publish $PROJECT -c Release -o $PUBLISH_DIR /p:UseAppHost=false
 
-        steps:
-            - name: Download artifact from build job
-              uses: actions/download-artifact@v4
-              with:
-                  name: .net-app
-
-            - name: Login to Azure
+            - name: Azure Login (OIDC)
               uses: azure/login@v2
               with:
                   client-id: ${{ secrets.AZURE_CLIENT_ID }}
@@ -56,9 +51,7 @@ jobs:
                   subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
             - name: Deploy to Azure Web App
-              id: deploy-to-webapp
               uses: azure/webapps-deploy@v3
               with:
-                  app-name: 'invosmart-api-dev'
-                  slot-name: 'Production'
-                  package: .
+                  app-name: ${{ env.AZURE_WEBAPP_NAME }}
+                  package: ${{ env.PUBLISH_DIR }}
