@@ -57,35 +57,6 @@ jobs:
             - name: Publish
               run: dotnet publish "${{ env.PROJECT }}" -c Release -o "${{ env.PUBLISH_DIR }}" /p:UseAppHost=false
 
-            # --- Migrations (idempotent SQL) ---
-            - name: Restore dotnet tools
-              run: dotnet tool restore
-
-            # --- Migrations ---
-            - name: Generate idempotent EF migration script
-              run: |
-                  mkdir -p artifacts
-                  dotnet tool restore || true
-                  dotnet ef migrations script --idempotent \
-                    --project "${{ env.PROJECT }}" \
-                    -o artifacts/migrations.sql
-
-            - name: Apply migrations to Postgres
-              env:
-                  PGHOST: ${{ secrets.PG_HOST }}
-                  PGUSER: ${{ secrets.PG_USER }}
-                  PGPASSWORD: ${{ secrets.PG_PASSWORD }}
-                  PGDATABASE: ${{ secrets.PG_DATABASE }}
-              run: |
-                  sudo apt-get update && sudo apt-get install -y postgresql-client
-                  if [ -s artifacts/migrations.sql ]; then
-                    psql "host=$PGHOST dbname=$PGDATABASE user=$PGUSER password=$PGPASSWORD sslmode=require" \
-                      -v ON_ERROR_STOP=1 \
-                      -f artifacts/migrations.sql
-                  else
-                    echo "No migration changes detected."
-                  fi
-
             # --- Deploy directly to production app ---
             - name: Azure Login (OIDC)
               uses: azure/login@v2
