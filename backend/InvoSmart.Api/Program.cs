@@ -3,6 +3,7 @@ using InvoSmart.Api.Abstractions;
 using InvoSmart.Api.Data;
 using InvoSmart.Api.Middlewares;
 using InvoSmart.Api.Services;
+using Microsoft.ApplicationInsights.Extensibility;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 
@@ -25,6 +26,8 @@ builder.Services.AddHealthChecks();
 
 builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<IInvoiceService, InvoiceService>();
+
+builder.Services.AddApplicationInsightsTelemetry();
 
 var allowedOrigins =
     builder.Configuration.GetSection("AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();
@@ -55,7 +58,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 // Hook Serilog into the host and read config from appsettings
 builder.Host.UseSerilog(
-    (ctx, lc) =>
+    (ctx, services, lc) =>
     {
         lc.ReadFrom.Configuration(ctx.Configuration)
             .Enrich.WithEnvironmentName()
@@ -67,6 +70,20 @@ builder.Host.UseSerilog(
         if (ctx.HostingEnvironment.IsDevelopment())
         {
             lc.WriteTo.File("logs/app-.log", rollingInterval: RollingInterval.Day);
+        }
+
+        // Enable AI sink only in Staging/Prod and when we actually have a connection string
+        var aiConn =
+            ctx.Configuration["ApplicationInsights:ConnectionString"]
+            ?? Environment.GetEnvironmentVariable("APPLICATIONINSIGHTS_CONNECTION_STRING");
+
+        if (
+            !string.IsNullOrWhiteSpace(aiConn)
+            && (ctx.HostingEnvironment.IsStaging() || ctx.HostingEnvironment.IsProduction())
+        )
+        {
+            var aiConfig = services.GetRequiredService<TelemetryConfiguration>();
+            lc.WriteTo.ApplicationInsights(aiConfig, TelemetryConverter.Traces);
         }
     }
 );
