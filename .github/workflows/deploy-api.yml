@@ -2,8 +2,15 @@ name: Deploy Backend to Azure App Service (OIDC)
 
 on:
     push:
-        branches: [main] # <-- change to your branch if not 'main'
-    workflow_dispatch: # <-- manual run button
+        branches: [main]
+        paths:
+            - 'backend/**'
+            - '.github/workflows/deploy-api.yml'
+    workflow_dispatch:
+
+defaults:
+    run:
+        shell: bash # ensure $VAR expansion works
 
 jobs:
     build-and-deploy:
@@ -21,16 +28,24 @@ jobs:
             - name: Checkout
               uses: actions/checkout@v4
 
-            - name: Setup .NET 9
+            - name: Setup .NET 8
               uses: actions/setup-dotnet@v4
               with:
-                  dotnet-version: '9.0.x'
+                  dotnet-version: '8.0.x'
+
+            - name: Cache NuGet
+              uses: actions/cache@v4
+              with:
+                  path: ~/.nuget/packages
+                  key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+                  restore-keys: |
+                      ${{ runner.os }}-nuget-
 
             - name: Restore
-              run: dotnet restore $PROJECT
+              run: dotnet restore "${{ env.PROJECT }}"
 
             - name: Build
-              run: dotnet build $PROJECT -c Release --no-restore
+              run: dotnet build "${{ env.PROJECT }}" -c Release --no-restore
 
             - name: Test
               run: |
@@ -41,10 +56,10 @@ jobs:
                   fi
 
             - name: Publish
-              run: dotnet publish $PROJECT -c Release -o $PUBLISH_DIR /p:UseAppHost=false
+              run: dotnet publish "${{ env.PROJECT }}" -c Release -o "${{ env.PUBLISH_DIR }}" /p:UseAppHost=false
 
             - name: Azure Login (OIDC)
-              uses: azure/login@v2
+              uses: azure/login@v1
               with:
                   client-id: ${{ secrets.AZURE_CLIENT_ID }}
                   tenant-id: ${{ secrets.AZURE_TENANT_ID }}
