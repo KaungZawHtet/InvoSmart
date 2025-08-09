@@ -36,7 +36,7 @@ jobs:
         env:
             PROJECT: backend/InvoSmart.Api/InvoSmart.Api.csproj
             PUBLISH_DIR: backend/publish
-            AZURE_WEBAPP_NAME: invosmart-api-dev # <-- your web app name
+            AZURE_WEBAPP_NAME: InvoSmart # <-- your web app name
 
         steps:
             - name: Checkout
