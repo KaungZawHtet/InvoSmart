@@ -1,4 +1,4 @@
-name: Deploy Backend to Azure App Service (OIDC)
+name: Deploy Backend (F1, no slots)
 
 on:
     push:
@@ -10,10 +10,10 @@ on:
 
 defaults:
     run:
-        shell: bash # ensure $VAR expansion works
+        shell: bash
 
 jobs:
-    build-and-deploy:
+    build-migrate-deploy:
         runs-on: ubuntu-latest
         permissions:
             id-token: write
@@ -40,7 +40,6 @@ jobs:
                   key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
                   restore-keys: |
                       ${{ runner.os }}-nuget-
-
             - name: Restore
               run: dotnet restore "${{ env.PROJECT }}"
 
@@ -58,8 +57,34 @@ jobs:
             - name: Publish
               run: dotnet publish "${{ env.PROJECT }}" -c Release -o "${{ env.PUBLISH_DIR }}" /p:UseAppHost=false
 
+            # --- Migrations ---
+            - name: Generate idempotent EF migration script
+              run: |
+                  mkdir -p artifacts
+                  dotnet tool restore || true
+                  dotnet ef migrations script --idempotent \
+                    --project "${{ env.PROJECT }}" \
+                    -o artifacts/migrations.sql
+
+            - name: Apply migrations to Postgres
+              env:
+                  PGHOST: ${{ secrets.PG_HOST }}
+                  PGUSER: ${{ secrets.PG_USER }}
+                  PGPASSWORD: ${{ secrets.PG_PASSWORD }}
+                  PGDATABASE: ${{ secrets.PG_DATABASE }}
+              run: |
+                  sudo apt-get update && sudo apt-get install -y postgresql-client
+                  if [ -s artifacts/migrations.sql ]; then
+                    psql "host=$PGHOST dbname=$PGDATABASE user=$PGUSER password=$PGPASSWORD sslmode=require" \
+                      -v ON_ERROR_STOP=1 \
+                      -f artifacts/migrations.sql
+                  else
+                    echo "No migration changes detected."
+                  fi
+
+            # --- Deploy directly to production app ---
             - name: Azure Login (OIDC)
-              uses: azure/login@v1
+              uses: azure/login@v2
               with:
                   client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_277BAB9562234FF0A93B55FE68B7FBF6 }}
                   tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_38E9A387997E48DCA018A4B9A7FEC0D8 }}
@@ -68,5 +93,21 @@ jobs:
             - name: Deploy to Azure Web App
               uses: azure/webapps-deploy@v3
               with:
-                  app-name: ${{ env.AZURE_WEBAPP_NAME }}
+                  app-name: ${{ env.APP_NAME }}
                   package: ${{ env.PUBLISH_DIR }}
+
+            - name: Health check
+              run: |
+                  URL="https://${{ env.APP_NAME }}.azurewebsites.net/healthz"
+                  echo "Checking $URL"
+                  for i in {1..20}; do
+                    code=$(curl -sk -o /dev/null -w "%{http_code}" "$URL")
+                    if [ "$code" = "200" ]; then
+                      echo "Healthy."
+                      exit 0
+                    fi
+                    echo "Waiting for healthy (got $code)..."
+                    sleep 5
+                  done
+                  echo "Health check failed"
+                  exit 1
