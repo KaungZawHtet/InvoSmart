@@ -1,4 +1,4 @@
-name: Deploy Backend (F1, no slots)
+name: Deploy Backend to Azure App Service (OIDC)
 
 on:
     push:
@@ -10,10 +10,10 @@ on:
 
 defaults:
     run:
-        shell: bash
+        shell: bash # ensure $VAR expansion works
 
 jobs:
-    build-migrate-deploy:
+    build-and-deploy:
         runs-on: ubuntu-latest
         permissions:
             id-token: write
@@ -40,6 +40,7 @@ jobs:
                   key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
                   restore-keys: |
                       ${{ runner.os }}-nuget-
+
             - name: Restore
               run: dotnet restore "${{ env.PROJECT }}"
 
@@ -57,7 +58,6 @@ jobs:
             - name: Publish
               run: dotnet publish "${{ env.PROJECT }}" -c Release -o "${{ env.PUBLISH_DIR }}" /p:UseAppHost=false
 
-            # --- Deploy directly to production app ---
             - name: Azure Login (OIDC)
               uses: azure/login@v2
               with:
@@ -68,12 +68,11 @@ jobs:
             - name: Deploy to Azure Web App
               uses: azure/webapps-deploy@v3
               with:
-                  app-name: ${{ env.APP_NAME }}
+                  app-name: ${{ env.AZURE_WEBAPP_NAME }}
                   package: ${{ env.PUBLISH_DIR }}
-
             - name: Health check
               run: |
-                  URL="https://${{ env.APP_NAME }}.azurewebsites.net/healthz"
+                  URL="https://${{ env.AZURE_WEBAPP_NAME }}.azurewebsites.net/healthz"
                   echo "Checking $URL"
                   for i in {1..20}; do
                     code=$(curl -sk -o /dev/null -w "%{http_code}" "$URL")
@@ -85,4 +84,3 @@ jobs:
                     sleep 5
                   done
                   echo "Health check failed"
-                  exit 1
