@@ -1,0 +1,95 @@
+name: Deploy Frontend to Azure App Service (OIDC)
+
+on:
+    push:
+        branches: [main]
+        paths:
+            - 'frontend/**'
+            - '.github/workflows/deploy-frontend.yml'
+    workflow_dispatch:
+
+defaults:
+    run:
+        shell: bash
+
+jobs:
+    build-and-deploy:
+        runs-on: ubuntu-latest
+        permissions:
+            id-token: write
+            contents: read
+
+        env:
+            WORKDIR: frontend
+            APP_NAME: invosmart-fe
+            FRONTEND_HOST: invosmart-fe-fqbna0fbaafte0f0.southeastasia-01.azurewebsites.net
+            ARTIFACT_DIR: frontend/.azure-standalone
+            ZIP_PATH: frontend/next-standalone.zip
+
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
+
+            - name: Setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: '22.x'
+                  cache: 'npm'
+                  cache-dependency-path: ${{ env.WORKDIR }}/package-lock.json
+
+            - name: Install deps
+              working-directory: ${{ env.WORKDIR }}
+              run: npm ci
+
+            - name: Build (Next.js standalone)
+              working-directory: ${{ env.WORKDIR }}
+              env:
+                  NEXT_TELEMETRY_DISABLED: '1'
+                  NODE_ENV: production
+              run: npm run build
+
+            - name: Prepare artifact
+              run: |
+                  rm -rf "${ARTIFACT_DIR}"
+                  mkdir -p "${ARTIFACT_DIR}"
+                  # copy standalone server + its node_modules
+                  cp -r "${WORKDIR}/.next/standalone/." "${ARTIFACT_DIR}/"
+                  # include static assets and public
+                  mkdir -p "${ARTIFACT_DIR}/.next"
+                  cp -r "${WORKDIR}/.next/static" "${ARTIFACT_DIR}/.next/static"
+                  if [ -d "${WORKDIR}/public" ]; then
+                    cp -r "${WORKDIR}/public" "${ARTIFACT_DIR}/public"
+                  fi
+                  # startup script
+                  cp "${WORKDIR}/startup.sh" "${ARTIFACT_DIR}/startup.sh"
+                  chmod +x "${ARTIFACT_DIR}/startup.sh"
+                  # zip for deployment
+                  (cd "${ARTIFACT_DIR}" && zip -r ../next-standalone.zip .)
+
+            - name: Azure Login (OIDC)
+              uses: azure/login@v2
+              with:
+                  client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_277BAB9562234FF0A93B55FE68B7FBF6 }}
+                  tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_38E9A387997E48DCA018A4B9A7FEC0D8 }}
+                  subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_AB899ADA5DA645E29074BC09033CB6F3 }}
+
+            - name: Deploy to Azure Web App
+              uses: azure/webapps-deploy@v3
+              with:
+                  app-name: ${{ env.APP_NAME }}
+                  package: ${{ env.ZIP_PATH }}
+
+            - name: Health check
+              run: |
+                  URL="https://${{ env.FRONTEND_HOST }}/api/healthz"
+                  echo "Checking $URL"
+                  for i in {1..30}; do
+                    code=$(curl -sk -o /dev/null -w "%{http_code}" "$URL")
+                    if [ "$code" = "200" ]; then
+                      echo "Healthy."
+                      exit 0
+                    fi
+                    echo "Waiting for healthy (got $code)..."
+                    sleep 5
+                  done
+                  echo "Health check failed"; exit 1
