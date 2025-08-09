@@ -20,61 +20,61 @@
 name: Deploy Backend to Azure App Service (OIDC)
 
 on:
-  push:
-    branches: [ main ]
-    paths:
-      - "backend/**"
-      - ".github/workflows/deploy-api.yml"
+    push:
+        branches: [main]
+        paths:
+            - 'backend/**'
+            - '.github/workflows/deploy-api.yml'
 
 jobs:
-  build-and-deploy:
-    runs-on: ubuntu-latest
-    permissions:
-      id-token: write   # OIDC
-      contents: read
+    build-and-deploy:
+        runs-on: ubuntu-latest
+        permissions:
+            id-token: write # OIDC
+            contents: read
 
-    env:
-      PROJECT: backend/InvoSmart.Api/InvoSmart.Api.csproj
-      PUBLISH_DIR: backend/publish
-      AZURE_WEBAPP_NAME: invosmart-api-dev   # <-- your web app name
+        env:
+            PROJECT: backend/InvoSmart.Api/InvoSmart.Api.csproj
+            PUBLISH_DIR: backend/publish
+            AZURE_WEBAPP_NAME: invosmart-api-dev # <-- your web app name
 
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+        steps:
+            - name: Checkout
+              uses: actions/checkout@v4
 
-      - name: Setup .NET 8
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: "8.0.x"
+            - name: Setup .NET 8
+              uses: actions/setup-dotnet@v4
+              with:
+                  dotnet-version: '8.0.x'
 
-      - name: Restore
-        run: dotnet restore $PROJECT
+            - name: Restore
+              run: dotnet restore $PROJECT
 
-      - name: Build
-        run: dotnet build $PROJECT -c Release --no-restore
+            - name: Build
+              run: dotnet build $PROJECT -c Release --no-restore
 
-      - name: Test
-        run: |
-          if [ -f "backend/InvoSmart.Tests/InvoSmart.Tests.csproj" ]; then
-            dotnet test backend/InvoSmart.Tests/InvoSmart.Tests.csproj -c Release --no-build
-          else
-            echo "No tests project. Skipping."
-          fi
+            - name: Test
+              run: |
+                  if [ -f "backend/InvoSmart.Tests/InvoSmart.Tests.csproj" ]; then
+                    dotnet test backend/InvoSmart.Tests/InvoSmart.Tests.csproj -c Release --no-build
+                  else
+                    echo "No tests project. Skipping."
+                  fi
 
-      - name: Publish
-        run: dotnet publish $PROJECT -c Release -o $PUBLISH_DIR /p:UseAppHost=false
+            - name: Publish
+              run: dotnet publish $PROJECT -c Release -o $PUBLISH_DIR /p:UseAppHost=false
 
-      # Login to Azure using OIDC (no secrets!)
-      - name: Azure Login (OIDC)
-        uses: azure/login@v2
-        with:
-          client-id: ${{ secrets.AZURE_CLIENT_ID }}
-          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+            # Login to Azure using OIDC (no secrets!)
+            - name: Azure Login (OIDC)
+              uses: azure/login@v2
+              with:
+                  client-id: ${{ secrets.AZURE_CLIENT_ID }}
+                  tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+                  subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
 
-      # Deploy published output to Web App (zip deploy)
-      - name: Deploy to Azure Web App
-        uses: azure/webapps-deploy@v3
-        with:
-          app-name: ${{ env.AZURE_WEBAPP_NAME }}
-          package: ${{ env.PUBLISH_DIR }}
+            # Deploy published output to Web App (zip deploy)
+            - name: Deploy to Azure Web App
+              uses: azure/webapps-deploy@v3
+              with:
+                  app-name: ${{ env.AZURE_WEBAPP_NAME }}
+                  package: ${{ env.PUBLISH_DIR }}
