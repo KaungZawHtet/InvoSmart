@@ -47,7 +47,6 @@ export default function CreateInvoiceDialog() {
     const [customers, setCustomers] = useState<Customer[]>([]);
     const [loadingCustomers, setLoadingCustomers] = useState(false);
 
-    const today = useMemo(() => new Date(), []);
     const defaultIssue = useMemo(
         () => new Date().toISOString().slice(0, 10),
         []
@@ -87,7 +86,7 @@ export default function CreateInvoiceDialog() {
                 ) {
                     toast.warning('Selected customer not found in list.');
                 }
-            } catch (err) {
+            } catch {
                 toast.error('Failed to load customers');
             } finally {
                 setLoadingCustomers(false);

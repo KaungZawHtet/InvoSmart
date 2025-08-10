@@ -44,7 +44,7 @@ async function fetchInvoices(params: {
     let res: Response;
     try {
         res = await fetch(url, { cache: 'no-store' });
-    } catch (e) {
+    } catch {
         throw new Error('Failed to reach API');
     }
 
