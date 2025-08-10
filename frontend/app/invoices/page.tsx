@@ -61,14 +61,16 @@ async function fetchInvoices(params: {
 export default async function InvoicesPage({
     searchParams,
 }: {
-    searchParams?: { customerId?: string; page?: string; pageSize?: string };
+    searchParams?: Promise<{
+        customerId?: string;
+        page?: string;
+        pageSize?: string;
+    }>;
 }) {
-    const customerId = searchParams?.customerId?.trim() || undefined;
-    const page = Math.max(1, Number(searchParams?.page ?? 1));
-    const pageSize = Math.min(
-        100,
-        Math.max(1, Number(searchParams?.pageSize ?? 10))
-    );
+    const q = (await searchParams) ?? {};
+    const customerId = q.customerId?.trim() || undefined;
+    const page = Math.max(1, Number(q.page ?? 1));
+    const pageSize = Math.min(100, Math.max(1, Number(q.pageSize ?? 10)));
 
     const { data, total } = await fetchInvoices({ customerId, page, pageSize });
     const totalPages = Math.max(1, Math.ceil(total / pageSize));

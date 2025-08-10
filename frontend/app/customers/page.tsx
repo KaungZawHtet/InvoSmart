@@ -56,13 +56,11 @@ async function fetchCustomers(page: number, pageSize: number) {
 export default async function CustomersPage({
     searchParams,
 }: {
-    searchParams?: { page?: string; pageSize?: string };
+    searchParams?: Promise<{ page?: string; pageSize?: string }>;
 }) {
-    const page = Math.max(1, Number(searchParams?.page ?? 1));
-    const pageSize = Math.min(
-        100,
-        Math.max(1, Number(searchParams?.pageSize ?? 10))
-    );
+    const q = (await searchParams) ?? {};
+    const page = Math.max(1, Number(q.page ?? 1));
+    const pageSize = Math.min(100, Math.max(1, Number(q.pageSize ?? 10)));
 
     const { data, total } = await fetchCustomers(page, pageSize);
     const totalPages = Math.max(1, Math.ceil(total / pageSize));
