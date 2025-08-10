@@ -40,7 +40,14 @@ jobs:
             - name: Install deps
               working-directory: ${{ env.WORKDIR }}
               run: npm ci
-
+            - name: Cache Next.js build cache
+              uses: actions/cache@v4
+              with:
+                  path: |
+                      frontend/.next/cache
+                  key: ${{ runner.os }}-nextcache-${{ hashFiles('frontend/package-lock.json') }}-${{ hashFiles('frontend/**/*.ts','frontend/**/*.tsx') }}
+                  restore-keys: |
+                      ${{ runner.os }}-nextcache-
             - name: Build (Next.js standalone)
               working-directory: ${{ env.WORKDIR }}
               env:
