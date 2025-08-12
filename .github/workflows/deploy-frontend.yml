@@ -25,6 +25,7 @@ jobs:
             FRONTEND_HOST: invosmart-fe-fqbna0fbaafte0f0.southeastasia-01.azurewebsites.net
             ARTIFACT_DIR: frontend/.azure-standalone
             ZIP_PATH: frontend/next-standalone.zip
+            API_BASE_URL: https://invosmart-api-dev-gjhjfthbfng8gsgb.southeastasia-01.azurewebsites.net
 
         steps:
             - name: Checkout
@@ -40,6 +41,10 @@ jobs:
             - name: Install deps
               working-directory: ${{ env.WORKDIR }}
               run: npm ci
+
+            - name: Stamp API base for cache key
+              run: echo "${{ env.API_BASE_URL }}" > api_base.txt
+
             - name: Cache Next.js build cache
               uses: actions/cache@v4
               with:
@@ -53,6 +58,7 @@ jobs:
               env:
                   NEXT_TELEMETRY_DISABLED: '1'
                   NODE_ENV: production
+                  NEXT_PUBLIC_API_BASE: ${{ env.API_BASE_URL }}
               run: npm run build
 
             - name: Prepare artifact
