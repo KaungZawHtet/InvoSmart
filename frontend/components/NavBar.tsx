@@ -7,6 +7,7 @@ const links = [
     { href: '/', label: 'Dashboard' },
     { href: '/customers', label: 'Customers' },
     { href: '/invoices', label: 'Invoices' },
+    { href: '/dunning', label: 'Dunning' },
 ];
 
 export default function NavBar() {
