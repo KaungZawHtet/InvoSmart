@@ -20,6 +20,8 @@ builder
         o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
 ;
+builder.Services.AddSingleton<AiFoundryService>();
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 builder.Services.AddHealthChecks();
