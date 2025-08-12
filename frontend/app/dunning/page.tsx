@@ -6,6 +6,9 @@ type DunningResponse = { text: string };
 
 export default function DunningPage() {
     const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL!;
+    if (!API_BASE) {
+        throw new Error('NEXT_PUBLIC_API_BASE_URL is missing at build time');
+    }
     const [customerName, setCustomerName] = useState('');
     const [amount, setAmount] = useState<string>('');
     const [dueDate, setDueDate] = useState<string>('');
